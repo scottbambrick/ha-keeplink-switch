@@ -2,13 +2,24 @@
 from __future__ import annotations
 
 from homeassistant.components.device_tracker import ScannerEntity
+import asyncio
+import logging
+import re
+import socket
+
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.device_registry import format_mac
+from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC, DeviceInfo, format_mac
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import CONF_IGNORED_PORTS, CONF_PORT_NAMES, CONF_TRACK_DEVICES, DOMAIN
 from .entity import KeepLinkEntity
+
+_LOGGER = logging.getLogger(__name__)
+RENAME_EVERY = 600  # seconds between name look-ups per device
+GENERIC_HOSTS = ("localhost", "unknown")
+IPV4_RE = re.compile(r"\d{1,3}(\.\d{1,3}){3}")
 
 
 async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities: AddEntitiesCallback) -> None:
@@ -42,17 +53,46 @@ async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities: AddE
     entry.async_on_unload(coordinator.async_add_listener(_discover))
 
 
+def _arp_ip(mac: str) -> str | None:
+    """IP for a MAC from the host's ARP table (blocking; run in the executor)."""
+    try:
+        with open("/proc/net/arp", encoding="utf-8") as fh:
+            next(fh, None)
+            for line in fh:
+                parts = line.split()
+                if len(parts) >= 4 and parts[3].lower() == mac and parts[2] != "0x0":
+                    return parts[0]
+    except OSError:
+        return None
+    return None
+
+
+def _reverse_dns(ip: str) -> str | None:
+    try:
+        host = socket.gethostbyaddr(ip)[0]
+    except (OSError, UnicodeError):
+        return None
+    if host == ip or IPV4_RE.fullmatch(host):
+        return None  # no PTR record: the resolver just echoed the address
+    label = host.split(".")[0]
+    if not label or label.lower() in GENERIC_HOSTS or IPV4_RE.fullmatch(label.replace("-", ".")):
+        return None
+    return label
+
+
 class KeepLinkTracker(KeepLinkEntity, ScannerEntity):
     """A MAC address that is (or was) learned on a non-ignored port."""
 
-    _attr_has_entity_name = False
+    # the friendly name is the device's name, which we keep updated with whatever
+    # we can discover about the MAC (see _discover_name)
+    _attr_name = None
 
     def __init__(self, coordinator, mac: str) -> None:
         super().__init__(coordinator)
         self._device_mac = mac
-        self._attr_unique_id = f"{self._mac}_dev_{mac}"
-        self._attr_name = mac.upper()
         self._attr_entity_registry_enabled_default = True
+        self._found: str | None = None
+        self._last_lookup = 0.0
 
     @property
     def unique_id(self) -> str:
@@ -63,6 +103,82 @@ class KeepLinkTracker(KeepLinkEntity, ScannerEntity):
     @property
     def mac_address(self) -> str:
         return format_mac(self._device_mac)
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return DeviceInfo(
+            connections={(CONNECTION_NETWORK_MAC, format_mac(self._device_mac))},
+            name=self._display_name(),
+        )
+
+    def _display_name(self) -> str:
+        return f"{self._found} (wired)" if self._found else self._device_mac.upper()
+
+    def _registry_name(self) -> tuple[str, str] | None:
+        """Names other integrations already know for this MAC (UniFi etc.)."""
+        hass = self.coordinator.hass
+        mac = self._device_mac
+        ours = {self.coordinator.config_entry.entry_id}
+        for dev in dr.async_get(hass).devices.values():
+            if not set(dev.config_entries) <= ours and (CONNECTION_NETWORK_MAC, mac) in dev.connections:
+                if name := dev.name_by_user or dev.name:
+                    return name, "device registry"
+        compact = mac.replace(":", "")
+        for ent in er.async_get(hass).entities.values():
+            if ent.domain != "device_tracker" or ent.platform == DOMAIN:
+                continue
+            uid = ent.unique_id.lower().replace(":", "").replace("-", "")
+            if compact in uid and (name := ent.name or ent.original_name):
+                return name, f"{ent.platform} tracker"
+        return None
+
+    async def _discover_name(self) -> None:
+        found = self._registry_name()
+        if not found:
+            hass = self.coordinator.hass
+            ip = await hass.async_add_executor_job(_arp_ip, self._device_mac)
+            if ip:
+                try:
+                    async with asyncio.timeout(4):
+                        host = await hass.async_add_executor_job(_reverse_dns, ip)
+                except TimeoutError:
+                    host = None
+                if host:
+                    found = (host, f"reverse DNS of {ip}")
+            if not found:
+                info = self.coordinator.data.macs.get(self._device_mac)
+                names = self.coordinator.config_entry.options.get(CONF_PORT_NAMES, {})
+                desc = info and names.get(str(info["port"]))
+                alone = info and sum(
+                    1 for i in self.coordinator.data.macs.values() if i["port"] == info["port"]
+                ) == 1
+                if desc and alone:
+                    found = (desc, "port description")
+        if found and found[0] != self._found:
+            _LOGGER.debug("Named %s %r from %s", self._device_mac, found[0], found[1])
+            self._found = found[0]
+            self._push_name()
+
+    def _push_name(self) -> None:
+        """Keep the device-registry name current unless the user renamed it."""
+        registry = dr.async_get(self.coordinator.hass)
+        device = registry.async_get_device(
+            connections={(CONNECTION_NETWORK_MAC, format_mac(self._device_mac))}
+        )
+        if device and not device.name_by_user and device.name != self._display_name():
+            registry.async_update_device(device.id, name=self._display_name())
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self.coordinator.hass.async_create_task(self._discover_name())
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        now = self.coordinator.hass.loop.time()
+        if now - self._last_lookup > RENAME_EVERY:
+            self._last_lookup = now
+            self.coordinator.hass.async_create_task(self._discover_name())
+        super()._handle_coordinator_update()
 
     def _entry_info(self) -> dict | None:
         info = self.coordinator.data.macs.get(self._device_mac)

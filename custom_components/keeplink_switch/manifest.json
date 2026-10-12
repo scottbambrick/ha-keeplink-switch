@@ -1,0 +1,14 @@
+{
+  "domain": "keeplink_switch",
+  "name": "KeepLink Managed Switch",
+  "codeowners": [
+    "@scottbambrick"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/scottbambrick/ha-keeplink-switch",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/scottbambrick/ha-keeplink-switch/issues",
+  "requirements": [],
+  "version": "0.2.0"
+}

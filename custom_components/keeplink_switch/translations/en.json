@@ -1,0 +1,70 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "KeepLink managed switch",
+        "description": "The switch allows one web session at a time: Home Assistant logging in will sign out any browser session.",
+        "data": {
+          "host": "IP address",
+          "username": "Username",
+          "password": "Password",
+          "name": "Name (optional)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate",
+        "description": "The switch at {host} rejected the saved credentials.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure switch",
+        "description": "Change the address or credentials. The switch must be the same device.",
+        "data": {
+          "host": "IP address",
+          "username": "Username",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot reach the switch",
+      "invalid_auth": "Invalid username or password"
+    },
+    "abort": {
+      "already_configured": "This switch is already configured",
+      "reauth_successful": "Re-authentication successful",
+      "reconfigure_successful": "Reconfiguration successful",
+      "wrong_device": "That address is a different switch"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "KeepLink options",
+        "description": "Port descriptions are shown in entity names and attributes. Ports in the ignore list (uplinks, access points, other switches) are skipped by device tracking.",
+        "data": {
+          "scan_interval": "Poll interval (seconds)",
+          "auto_save": "Save the switch configuration after each change made from Home Assistant",
+          "has_poe": "This switch has PoE",
+          "track_devices": "Track wired devices from the MAC table",
+          "ignored_ports": "Ports ignored for device tracking",
+          "port_1": "Port 1 description",
+          "port_2": "Port 2 description",
+          "port_3": "Port 3 description",
+          "port_4": "Port 4 description",
+          "port_5": "Port 5 description",
+          "port_6": "Port 6 description",
+          "port_7": "Port 7 description",
+          "port_8": "Port 8 description",
+          "port_9": "Port 9 description"
+        },
+        "data_description": {
+          "auto_save": "Unsaved changes are lost when the switch reboots or loses power."
+        }
+      }
+    }
+  }
+}

@@ -1,19 +1,28 @@
 """Presence for wired devices, from the switch's MAC address table."""
 from __future__ import annotations
 
-from homeassistant.components.device_tracker import ScannerEntity
 import asyncio
 import logging
 import re
 import socket
 
+from homeassistant.components.device_tracker import ScannerEntity
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC, DeviceInfo, format_mac
+from homeassistant.helpers.device_registry import (
+    CONNECTION_NETWORK_MAC,
+    DeviceInfo,
+    format_mac,
+)
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_IGNORED_PORTS, CONF_PORT_NAMES, CONF_TRACK_DEVICES, DOMAIN
+from .const import (
+    CONF_IGNORED_PORTS,
+    CONF_PORT_NAMES,
+    CONF_TRACK_DEVICES,
+    DOMAIN,
+)
 from .entity import KeepLinkEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -22,7 +31,10 @@ GENERIC_HOSTS = ("localhost", "unknown")
 IPV4_RE = re.compile(r"\d{1,3}(\.\d{1,3}){3}")
 
 
-async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities: AddEntitiesCallback) -> None:
+async def async_setup_entry(
+    hass: HomeAssistant, entry, async_add_entities: AddEntitiesCallback
+) -> None:
+    """Add a tracker per MAC learned on a non-ignored port (and known ones)."""
     coordinator = entry.runtime_data
     if not entry.options.get(CONF_TRACK_DEVICES, True):
         return
@@ -60,7 +72,8 @@ def _arp_ip(mac: str) -> str | None:
             next(fh, None)
             for line in fh:
                 parts = line.split()
-                if len(parts) >= 4 and parts[3].lower() == mac and parts[2] != "0x0":
+                complete = parts[2] != "0x0" if len(parts) >= 4 else False
+                if complete and parts[3].lower() == mac:
                     return parts[0]
     except OSError:
         return None
@@ -68,6 +81,7 @@ def _arp_ip(mac: str) -> str | None:
 
 
 def _reverse_dns(ip: str) -> str | None:
+    """Host name label from a PTR record (blocking; run in the executor)."""
     try:
         host = socket.gethostbyaddr(ip)[0]
     except (OSError, UnicodeError):
@@ -75,7 +89,11 @@ def _reverse_dns(ip: str) -> str | None:
     if host == ip or IPV4_RE.fullmatch(host):
         return None  # no PTR record: the resolver just echoed the address
     label = host.split(".")[0]
-    if not label or label.lower() in GENERIC_HOSTS or IPV4_RE.fullmatch(label.replace("-", ".")):
+    if (
+        not label
+        or label.lower() in GENERIC_HOSTS
+        or IPV4_RE.fullmatch(label.replace("-", "."))
+    ):
         return None
     return label
 
@@ -118,11 +136,13 @@ class KeepLinkTracker(KeepLinkEntity, ScannerEntity):
         """Names other integrations already know for this MAC (UniFi etc.)."""
         hass = self.coordinator.hass
         mac = self._device_mac
-        ours = {self.coordinator.config_entry.entry_id}
-        for dev in dr.async_get(hass).devices.values():
-            if not set(dev.config_entries) <= ours and (CONNECTION_NETWORK_MAC, mac) in dev.connections:
-                if name := dev.name_by_user or dev.name:
-                    return name, "device registry"
+        ours = self.coordinator.config_entry.entry_id
+        devices = dr.async_get(hass).async_get_devices(
+            connections={(CONNECTION_NETWORK_MAC, mac)}
+        )
+        for dev in devices:
+            if dev.config_entry_id != ours and (name := dev.name_by_user or dev.name):
+                return name, "device registry"
         compact = mac.replace(":", "")
         for ent in er.async_get(hass).entities.values():
             if ent.domain != "device_tracker" or ent.platform == DOMAIN:
@@ -138,6 +158,8 @@ class KeepLinkTracker(KeepLinkEntity, ScannerEntity):
             hass = self.coordinator.hass
             ip = await hass.async_add_executor_job(_arp_ip, self._device_mac)
             if ip:
+                # Stops waiting, but the look-up thread may run on until the
+                # resolver itself gives up
                 try:
                     async with asyncio.timeout(4):
                         host = await hass.async_add_executor_job(_reverse_dns, ip)
@@ -147,42 +169,53 @@ class KeepLinkTracker(KeepLinkEntity, ScannerEntity):
                     found = (host, f"reverse DNS of {ip}")
             if not found:
                 info = self.coordinator.data.macs.get(self._device_mac)
-                names = self.coordinator.config_entry.options.get(CONF_PORT_NAMES, {})
+                names = self.coordinator.config_entry.options.get(
+                    CONF_PORT_NAMES, {}
+                )
                 desc = info and names.get(str(info["port"]))
-                alone = info and sum(
-                    1 for i in self.coordinator.data.macs.values() if i["port"] == info["port"]
-                ) == 1
+                macs = self.coordinator.data.macs.values()
+                alone = info and sum(i["port"] == info["port"] for i in macs) == 1
                 if desc and alone:
                     found = (desc, "port description")
         if found and found[0] != self._found:
-            _LOGGER.debug("Named %s %r from %s", self._device_mac, found[0], found[1])
+            _LOGGER.debug(
+                "Named %s %r from %s", self._device_mac, found[0], found[1]
+            )
             self._found = found[0]
             self._push_name()
 
     def _push_name(self) -> None:
         """Keep the device-registry name current unless the user renamed it."""
         registry = dr.async_get(self.coordinator.hass)
-        device = registry.async_get_device(
-            connections={(CONNECTION_NETWORK_MAC, format_mac(self._device_mac))}
+        name = self._display_name()
+        for device in registry.async_get_devices(
+            connections={(CONNECTION_NETWORK_MAC, format_mac(self._device_mac))},
+            config_entry_id=self.coordinator.config_entry.entry_id,
+        ):
+            if not device.name_by_user and device.name != name:
+                registry.async_update_device(device.id, name=name)
+
+    def _start_name_lookup(self) -> None:
+        self._last_lookup = self.hass.loop.time()
+        self.coordinator.config_entry.async_create_background_task(
+            self.hass, self._discover_name(), f"keeplink name {self._device_mac}"
         )
-        if device and not device.name_by_user and device.name != self._display_name():
-            registry.async_update_device(device.id, name=self._display_name())
 
     async def async_added_to_hass(self) -> None:
+        """Look the name up once added, then every RENAME_EVERY seconds."""
         await super().async_added_to_hass()
-        self.coordinator.hass.async_create_task(self._discover_name())
+        self._start_name_lookup()
 
     @callback
     def _handle_coordinator_update(self) -> None:
-        now = self.coordinator.hass.loop.time()
-        if now - self._last_lookup > RENAME_EVERY:
-            self._last_lookup = now
-            self.coordinator.hass.async_create_task(self._discover_name())
+        if self.hass.loop.time() - self._last_lookup > RENAME_EVERY:
+            self._start_name_lookup()
         super()._handle_coordinator_update()
 
     def _entry_info(self) -> dict | None:
         info = self.coordinator.data.macs.get(self._device_mac)
-        ignored = {int(p) for p in self.coordinator.config_entry.options.get(CONF_IGNORED_PORTS, [])}
+        options = self.coordinator.config_entry.options
+        ignored = {int(p) for p in options.get(CONF_IGNORED_PORTS, [])}
         if info and info["port"] not in ignored:
             return info
         return None

@@ -11,7 +11,9 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .entity import KeepLinkPortEntity
 
 
-async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities: AddEntitiesCallback) -> None:
+async def async_setup_entry(
+    hass: HomeAssistant, entry, async_add_entities: AddEntitiesCallback
+) -> None:
     coordinator = entry.runtime_data
     async_add_entities(
         KeepLinkLink(coordinator, n) for n in coordinator.data.ports

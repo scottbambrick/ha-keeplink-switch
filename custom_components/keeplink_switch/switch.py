@@ -9,7 +9,9 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .entity import KeepLinkPortEntity
 
 
-async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities: AddEntitiesCallback) -> None:
+async def async_setup_entry(
+    hass: HomeAssistant, entry, async_add_entities: AddEntitiesCallback
+) -> None:
     coordinator = entry.runtime_data
     entities: list[SwitchEntity] = [
         KeepLinkPoeSwitch(coordinator, n)
@@ -53,12 +55,10 @@ class KeepLinkPoeSwitch(KeepLinkPortEntity, SwitchEntity):
         }
 
     async def async_turn_on(self, **kwargs) -> None:
-        await self.coordinator.client.set_poe(self.port, True)
-        await self.coordinator.async_refresh()
+        await self._run(self.coordinator.client.set_poe(self.port, True))
 
     async def async_turn_off(self, **kwargs) -> None:
-        await self.coordinator.client.set_poe(self.port, False)
-        await self.coordinator.async_refresh()
+        await self._run(self.coordinator.client.set_poe(self.port, False))
 
 
 class KeepLinkPortSwitch(KeepLinkPortEntity, SwitchEntity):
@@ -80,9 +80,7 @@ class KeepLinkPortSwitch(KeepLinkPortEntity, SwitchEntity):
         return self.port_data.enabled
 
     async def async_turn_on(self, **kwargs) -> None:
-        await self.coordinator.client.set_port(self.port_data, True)
-        await self.coordinator.async_refresh()
+        await self._run(self.coordinator.client.set_port(self.port_data, True))
 
     async def async_turn_off(self, **kwargs) -> None:
-        await self.coordinator.client.set_port(self.port_data, False)
-        await self.coordinator.async_refresh()
+        await self._run(self.coordinator.client.set_port(self.port_data, False))

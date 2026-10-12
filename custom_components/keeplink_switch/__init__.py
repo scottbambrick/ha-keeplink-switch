@@ -1,14 +1,14 @@
 """KeepLink managed switch integration."""
 from __future__ import annotations
 
+from aiohttp import DummyCookieJar
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
-
-from aiohttp import DummyCookieJar
 
 from .api import KeepLinkClient
 from .const import CONF_AUTO_SAVE, CONF_IGNORED_PORTS, DOMAIN
@@ -26,7 +26,9 @@ type KeepLinkConfigEntry = ConfigEntry[KeepLinkCoordinator]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: KeepLinkConfigEntry) -> bool:
-    # The switch is authenticated by a cookie we send ourselves.
+    """Set up one switch."""
+    # The switch is authenticated by a cookie we send ourselves. Created during
+    # entry setup, the session is detached again when the entry unloads.
     session = async_create_clientsession(hass, cookie_jar=DummyCookieJar())
     client = KeepLinkClient(
         session,
@@ -45,10 +47,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: KeepLinkConfigEntry) -> 
 
 
 async def _options_updated(hass: HomeAssistant, entry: KeepLinkConfigEntry) -> None:
+    """Apply changed options by reloading."""
     await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: KeepLinkConfigEntry) -> bool:
+    """Unload a switch."""
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 
@@ -66,7 +70,9 @@ async def async_remove_config_entry_device(
     if not live:
         return True  # nothing of ours is attached any more
     ignored = {int(p) for p in entry.options.get(CONF_IGNORED_PORTS, [])}
-    macs = {c[1] for c in device_entry.connections if c[0] == dr.CONNECTION_NETWORK_MAC}
+    macs = {
+        c[1] for c in device_entry.connections if c[0] == dr.CONNECTION_NETWORK_MAC
+    }
     # refuse while the device is still present on a tracked port
     return not any(
         (info := coordinator.data.macs.get(m)) and info["port"] not in ignored

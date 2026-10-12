@@ -26,6 +26,9 @@
           "host": "IP address",
           "username": "Username",
           "password": "Password"
+        },
+        "data_description": {
+          "password": "Leave blank to keep the saved password."
         }
       }
     },
@@ -65,6 +68,9 @@
           "auto_save": "Unsaved changes are lost when the switch reboots or loses power."
         }
       }
+    },
+    "abort": {
+      "not_loaded": "The switch isn't loaded right now (unreachable?). Options can be changed once it is."
     }
   }
 }

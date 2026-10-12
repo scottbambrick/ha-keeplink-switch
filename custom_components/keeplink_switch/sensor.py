@@ -12,6 +12,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import (
     EntityCategory,
+    UnitOfDataRate,
     UnitOfElectricCurrent,
     UnitOfElectricPotential,
     UnitOfPower,
@@ -48,7 +49,8 @@ PORT_SENSORS: tuple[PortSensorDescription, ...] = (
     PortSensorDescription(
         key="speed",
         name="speed",
-        native_unit_of_measurement="Mbit/s",
+        device_class=SensorDeviceClass.DATA_RATE,
+        native_unit_of_measurement=UnitOfDataRate.MEGABITS_PER_SECOND,
         icon="mdi:speedometer",
         value_fn=lambda p: p.speed or 0,
     ),
@@ -123,7 +125,9 @@ PORT_SENSORS: tuple[PortSensorDescription, ...] = (
 )
 
 
-async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities: AddEntitiesCallback) -> None:
+async def async_setup_entry(
+    hass: HomeAssistant, entry, async_add_entities: AddEntitiesCallback
+) -> None:
     coordinator = entry.runtime_data
     entities: list[SensorEntity] = []
     for n, port in coordinator.data.ports.items():
@@ -139,7 +143,9 @@ async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities: AddE
 class KeepLinkPortSensor(KeepLinkPortEntity, SensorEntity):
     entity_description: PortSensorDescription
 
-    def __init__(self, coordinator, port: int, description: PortSensorDescription) -> None:
+    def __init__(
+        self, coordinator, port: int, description: PortSensorDescription
+    ) -> None:
         super().__init__(coordinator, port, description.key, description.name)
         self.entity_description = description
 

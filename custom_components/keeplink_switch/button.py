@@ -9,9 +9,13 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .entity import KeepLinkEntity
 
 
-async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities: AddEntitiesCallback) -> None:
+async def async_setup_entry(
+    hass: HomeAssistant, entry, async_add_entities: AddEntitiesCallback
+) -> None:
     coordinator = entry.runtime_data
-    async_add_entities([KeepLinkSaveButton(coordinator), KeepLinkRebootButton(coordinator)])
+    async_add_entities(
+        [KeepLinkSaveButton(coordinator), KeepLinkRebootButton(coordinator)]
+    )
 
 
 class KeepLinkSaveButton(KeepLinkEntity, ButtonEntity):
@@ -26,7 +30,7 @@ class KeepLinkSaveButton(KeepLinkEntity, ButtonEntity):
         self._attr_unique_id = f"{self._mac}_save"
 
     async def async_press(self) -> None:
-        await self.coordinator.client.save()
+        await self._run(self.coordinator.client.save(), refresh=False)
 
 
 class KeepLinkRebootButton(KeepLinkEntity, ButtonEntity):
@@ -39,4 +43,4 @@ class KeepLinkRebootButton(KeepLinkEntity, ButtonEntity):
         self._attr_unique_id = f"{self._mac}_reboot"
 
     async def async_press(self) -> None:
-        await self.coordinator.client.reboot()
+        await self._run(self.coordinator.client.reboot(), refresh=False)

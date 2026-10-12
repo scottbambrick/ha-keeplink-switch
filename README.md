@@ -26,7 +26,9 @@ Tested on:
   ignored.
 - **Buttons:** reboot, and save configuration.
 - Optional **auto-save** after every change made from Home Assistant.
-- Reauthentication, reconfiguration and diagnostics support.
+- Reauthentication, reconfiguration (leave the password blank to keep the saved one) and diagnostics support.
+
+Requires Home Assistant 2026.10 or later (it uses the device registry API introduced there).
 
 ## Installation
 
@@ -85,3 +87,8 @@ Horaco/KeepLink switches: [gtrancillo/horaco_switch_ha](https://github.com/gtran
 ## License
 
 MIT
+
+## Development
+
+The switch-page parsing is covered by unit tests that run without Home Assistant (`pip install pytest`,
+then `pytest`). GitHub Actions runs them, `ruff`, `hassfest` and the HACS validation on every push.

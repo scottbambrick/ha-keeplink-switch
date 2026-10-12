@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from dataclasses import dataclass, field
 import hashlib
 import html
@@ -302,8 +303,7 @@ class KeepLinkClient:
 
     async def reboot(self) -> None:
         """Reboot the switch."""
+        # The switch may drop the connection as it goes down
         async with self._lock:
-            try:
+            with contextlib.suppress(KeepLinkError):
                 await self._page("POST", "reboot.cgi", {"cmd": "reboot"})
-            except KeepLinkError:
-                pass  # the switch may drop the connection as it goes down

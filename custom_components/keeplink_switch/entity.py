@@ -1,10 +1,13 @@
 """Base entities."""
 from __future__ import annotations
 
+from collections.abc import Awaitable
+
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC, DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .api import PortData
+from .api import KeepLinkError, PortData
 from .const import CONF_PORT_NAMES, DOMAIN
 from .coordinator import KeepLinkCoordinator
 
@@ -28,11 +31,22 @@ class KeepLinkEntity(CoordinatorEntity[KeepLinkCoordinator]):
             configuration_url=f"http://{coordinator.config_entry.data['host']}",
         )
 
+    async def _run(self, action: Awaitable[None], refresh: bool = True) -> None:
+        """Send a change to the switch; failures become a readable error."""
+        try:
+            await action
+        except KeepLinkError as err:
+            raise HomeAssistantError(f"{self.coordinator.config_entry.title}: {err}") from err
+        if refresh:
+            await self.coordinator.async_refresh()
+
 
 class KeepLinkPortEntity(KeepLinkEntity):
     """Entity for one port; the user-supplied description is part of the name."""
 
-    def __init__(self, coordinator: KeepLinkCoordinator, port: int, key: str, label: str) -> None:
+    def __init__(
+        self, coordinator: KeepLinkCoordinator, port: int, key: str, label: str
+    ) -> None:
         super().__init__(coordinator)
         self.port = port
         self._label = label

@@ -32,6 +32,10 @@ Requires Home Assistant 2026.10 or later (it uses the device registry API introd
 
 ## Installation
 
+[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=scottbambrick&repository=ha-keeplink-switch&category=integration)
+
+The button adds this repository to HACS (as a custom repository) in your own Home Assistant; then install it and restart. HACS offers each new GitHub release as an update.
+
 ### HACS (custom repository)
 
 1. HACS → ⋮ → *Custom repositories* → add `https://github.com/scottbambrick/ha-keeplink-switch`, type *Integration*.
@@ -43,6 +47,8 @@ Requires Home Assistant 2026.10 or later (it uses the device registry API introd
 Copy `custom_components/keeplink_switch` into your Home Assistant `custom_components` folder and restart.
 
 ## Setup
+
+[![Open your Home Assistant instance and start setting up this integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=keeplink_switch)
 
 Enter the switch's IP address and its web login (the default on these switches is `admin` / `admin`).
 PoE support is detected from the model name; you can override it in the options.

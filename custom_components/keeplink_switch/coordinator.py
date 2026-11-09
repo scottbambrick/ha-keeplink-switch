@@ -1,4 +1,5 @@
 """Data coordinator for a KeepLink switch."""
+
 from __future__ import annotations
 
 from datetime import timedelta

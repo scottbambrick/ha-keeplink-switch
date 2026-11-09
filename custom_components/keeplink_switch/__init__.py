@@ -1,13 +1,12 @@
 """KeepLink managed switch integration."""
+
 from __future__ import annotations
 
 from aiohttp import DummyCookieJar
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 
 from .api import KeepLinkClient
@@ -70,9 +69,7 @@ async def async_remove_config_entry_device(
     if not live:
         return True  # nothing of ours is attached any more
     ignored = {int(p) for p in entry.options.get(CONF_IGNORED_PORTS, [])}
-    macs = {
-        c[1] for c in device_entry.connections if c[0] == dr.CONNECTION_NETWORK_MAC
-    }
+    macs = {c[1] for c in device_entry.connections if c[0] == dr.CONNECTION_NETWORK_MAC}
     # refuse while the device is still present on a tracked port
     return not any(
         (info := coordinator.data.macs.get(m)) and info["port"] not in ignored

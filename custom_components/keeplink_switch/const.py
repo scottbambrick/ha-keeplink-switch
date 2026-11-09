@@ -1,4 +1,5 @@
 """Constants for the KeepLink switch integration."""
+
 DOMAIN = "keeplink_switch"
 
 CONF_SCAN_INTERVAL = "scan_interval"

@@ -4,9 +4,10 @@ The package's __init__.py imports Home Assistant, so the package is
 registered here by path instead; aiohttp is stubbed when not installed (the
 tests replace the HTTP layer).
 """
+
+from pathlib import Path
 import sys
 import types
-from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = "custom_components.keeplink_switch"

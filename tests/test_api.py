@@ -1,4 +1,5 @@
 """Parsing of the switch's CGI pages, against canned HTML."""
+
 import asyncio
 
 from custom_components.keeplink_switch.api import (

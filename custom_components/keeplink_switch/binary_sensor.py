@@ -1,4 +1,5 @@
 """Port link-state binary sensors."""
+
 from __future__ import annotations
 
 from homeassistant.components.binary_sensor import (
@@ -15,9 +16,7 @@ async def async_setup_entry(
     hass: HomeAssistant, entry, async_add_entities: AddEntitiesCallback
 ) -> None:
     coordinator = entry.runtime_data
-    async_add_entities(
-        KeepLinkLink(coordinator, n) for n in coordinator.data.ports
-    )
+    async_add_entities(KeepLinkLink(coordinator, n) for n in coordinator.data.ports)
 
 
 class KeepLinkLink(KeepLinkPortEntity, BinarySensorEntity):

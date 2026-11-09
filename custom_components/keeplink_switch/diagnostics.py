@@ -1,4 +1,5 @@
 """Diagnostics (credentials and device MAC addresses are redacted)."""
+
 from __future__ import annotations
 
 from dataclasses import asdict
@@ -11,7 +12,9 @@ from homeassistant.core import HomeAssistant
 TO_REDACT = {CONF_HOST, CONF_PASSWORD, CONF_USERNAME, "mac"}
 
 
-async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry) -> dict[str, Any]:
+async def async_get_config_entry_diagnostics(
+    hass: HomeAssistant, entry
+) -> dict[str, Any]:
     data = entry.runtime_data.data
     snapshot = asdict(data)
     snapshot["macs"] = {

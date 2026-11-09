@@ -1,4 +1,5 @@
 """Presence for wired devices, from the switch's MAC address table."""
+
 from __future__ import annotations
 
 import asyncio
@@ -8,8 +9,7 @@ import socket
 
 from homeassistant.components.device_tracker import ScannerEntity
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.device_registry import (
     CONNECTION_NETWORK_MAC,
     DeviceInfo,
@@ -46,7 +46,7 @@ async def async_setup_entry(
     prefix = f"{coordinator.data.mac}_dev_"
     for reg in er.async_entries_for_config_entry(registry, entry.entry_id):
         if reg.domain == "device_tracker" and reg.unique_id.startswith(prefix):
-            known.add(reg.unique_id[len(prefix):])
+            known.add(reg.unique_id[len(prefix) :])
     async_add_entities(KeepLinkTracker(coordinator, mac) for mac in sorted(known))
 
     @callback
@@ -169,18 +169,14 @@ class KeepLinkTracker(KeepLinkEntity, ScannerEntity):
                     found = (host, f"reverse DNS of {ip}")
             if not found:
                 info = self.coordinator.data.macs.get(self._device_mac)
-                names = self.coordinator.config_entry.options.get(
-                    CONF_PORT_NAMES, {}
-                )
+                names = self.coordinator.config_entry.options.get(CONF_PORT_NAMES, {})
                 desc = info and names.get(str(info["port"]))
                 macs = self.coordinator.data.macs.values()
                 alone = info and sum(i["port"] == info["port"] for i in macs) == 1
                 if desc and alone:
                     found = (desc, "port description")
         if found and found[0] != self._found:
-            _LOGGER.debug(
-                "Named %s %r from %s", self._device_mac, found[0], found[1]
-            )
+            _LOGGER.debug("Named %s %r from %s", self._device_mac, found[0], found[1])
             self._found = found[0]
             self._push_name()
 

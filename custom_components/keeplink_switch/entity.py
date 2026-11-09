@@ -1,4 +1,5 @@
 """Base entities."""
+
 from __future__ import annotations
 
 from collections.abc import Awaitable
@@ -36,7 +37,9 @@ class KeepLinkEntity(CoordinatorEntity[KeepLinkCoordinator]):
         try:
             await action
         except KeepLinkError as err:
-            raise HomeAssistantError(f"{self.coordinator.config_entry.title}: {err}") from err
+            raise HomeAssistantError(
+                f"{self.coordinator.config_entry.title}: {err}"
+            ) from err
         if refresh:
             await self.coordinator.async_refresh()
 

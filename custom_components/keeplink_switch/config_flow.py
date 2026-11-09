@@ -1,12 +1,11 @@
 """Config, reauth, reconfigure and options flows."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import Any
 
 from aiohttp import DummyCookieJar
-import voluptuous as vol
-
 from homeassistant.config_entries import (
     ConfigEntryState,
     ConfigFlow,
@@ -24,6 +23,7 @@ from homeassistant.helpers.selector import (
     TextSelectorConfig,
     TextSelectorType,
 )
+import voluptuous as vol
 
 from .api import KeepLinkAuthError, KeepLinkClient, KeepLinkError, detect_poe
 from .const import (
@@ -140,9 +140,7 @@ class KeepLinkConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="reauth_confirm",
             data_schema=vol.Schema(
                 {
-                    vol.Required(
-                        CONF_USERNAME, default=entry.data[CONF_USERNAME]
-                    ): str,
+                    vol.Required(CONF_USERNAME, default=entry.data[CONF_USERNAME]): str,
                     vol.Required(CONF_PASSWORD): PASSWORD,
                 }
             ),
@@ -231,9 +229,7 @@ class KeepLinkOptionsFlow(OptionsFlow):
                 CONF_SCAN_INTERVAL,
                 default=opts.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
             ): vol.All(int, vol.Range(min=10, max=600)),
-            vol.Required(
-                CONF_AUTO_SAVE, default=opts.get(CONF_AUTO_SAVE, True)
-            ): bool,
+            vol.Required(CONF_AUTO_SAVE, default=opts.get(CONF_AUTO_SAVE, True)): bool,
             vol.Required(CONF_HAS_POE, default=has_poe): bool,
             vol.Required(
                 CONF_TRACK_DEVICES, default=opts.get(CONF_TRACK_DEVICES, True)

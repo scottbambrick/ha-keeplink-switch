@@ -1,4 +1,5 @@
 """Client for KeepLink (Realtek web UI) managed switches."""
+
 from __future__ import annotations
 
 import asyncio
@@ -83,9 +84,7 @@ class SwitchData:
 def _cells(text: str) -> list[list[str]]:
     rows = []
     for row in ROW_RE.findall(text):
-        cells = [
-            html.unescape(TAG_RE.sub("", c)).strip() for c in CELL_RE.findall(row)
-        ]
+        cells = [html.unescape(TAG_RE.sub("", c)).strip() for c in CELL_RE.findall(row)]
         if cells:
             rows.append(cells)
     return rows
@@ -168,9 +167,7 @@ class KeepLinkClient:
         if "Device Model" not in probe:
             raise KeepLinkAuthError("Invalid username or password")
 
-    async def _page(
-        self, method: str, path: str, data: dict | None = None
-    ) -> str:
+    async def _page(self, method: str, path: str, data: dict | None = None) -> str:
         text = await self._raw(method, path, data)
         if '"/login.cgi"' in text and len(text) < 600:
             await self.login()
@@ -221,7 +218,12 @@ class KeepLinkClient:
 
             for row in _cells(await self._page("GET", "vlan.cgi?page=port_based")):
                 n = _port_num(row[0]) if row else None
-                if n is not None and n in data.ports and len(row) >= 2 and row[1].isdigit():
+                if (
+                    n is not None
+                    and n in data.ports
+                    and len(row) >= 2
+                    and row[1].isdigit()
+                ):
                     data.ports[n].pvid = int(row[1])
 
             if want_poe:
@@ -275,7 +277,11 @@ class KeepLinkClient:
             await self._page(
                 "POST",
                 "pse_port.cgi",
-                {"portid": str(port - 1), "state": "1" if enabled else "0", "cmd": "poe"},
+                {
+                    "portid": str(port - 1),
+                    "state": "1" if enabled else "0",
+                    "cmd": "poe",
+                },
             )
             await self._save_if_wanted()
 
